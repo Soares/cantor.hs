@@ -33,17 +33,24 @@ decrease (Nat n) = Right (Nat $ n - 1)
 decrease Omega = Left (fmap Nat [0..])
 decrease (x :+: Nat 0) = decrease x
 decrease (x :+: y) =  case decrease y of
+  -- Example: ω + 2 => ω + 1
   Right yPred -> Right (x :+: yPred)
+  -- Example: 3 + ω => [3 + 0, 3 + 1, 3 + 2, ...]
   Left ySeq -> Left [x :+: yVal | yVal <- ySeq]
 decrease (x :*: Nat 0) = decrease (Nat 0)
 decrease (x :*: y) = case (decrease x, decrease y) of
+  -- Example: (ω + 1) * 3 => (ω + 1) * 2 + ω
   (Right xPred, Right yPred) -> Right ((x :*: yPred) :+: xPred)
+  -- Example: ω * 3 => [ω * 2 + 0, ω * 2 + 1, ω * 2 + 2, ...]
   (Left xSeq, Right yPred) -> Left [(x :*: yPred) :+: xVal | xVal <- xSeq]
+  -- Example: 3 * ω => [3 * 0, 3 * 1, 3 * 2, ...]
   (_, Left ySeq) -> Left [x :*: yVal | yVal <- ySeq]
 decrease (x :^: Nat 0) = decrease (Nat 1)
 decrease (x :^: y) = case decrease y of
+  -- Example: ω ^ 3 => predecessor of ω ^ 2 * ω
   Right yPred -> decrease ((x :^: yPred) :*: x)
-  Left ySeq -> Left [(x :^: yVal) :*: x | yVal <- ySeq]
+  -- Example: (ω + 1)^ω => [(ω + 1)^0, (ω + 1)^1, (ω + 1)^2, ...]
+  Left ySeq -> Left [x :^: yVal | yVal <- ySeq]
 
 -- Given a counter, descends down the whole chain for an ordinal, incrementing
 -- the counter each step. Whenever we need to descend a limit ordinal, we use
