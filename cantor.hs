@@ -6,6 +6,7 @@ import Data.List (genericIndex, genericLength)
 data CantorOrdinal
   = Nat Integer
   | Omega
+  | Epsilon CantorOrdinal
   | CantorOrdinal :+: CantorOrdinal
   | CantorOrdinal :*: CantorOrdinal
   | CantorOrdinal :^: CantorOrdinal
@@ -14,6 +15,7 @@ instance Show CantorOrdinal where
   showsPrec p e0 = case e0 of
     Nat n -> shows n
     Omega -> ("ω" ++)
+    Epsilon ordinal -> ("ε[" ++) . shows ordinal . ("]" ++)
     x :+: y -> showParen (p >= 6) $ showsPrec 6 x . (" + " ++) . showsPrec 6 y
     x :*: y -> showParen (p >= 7) $ showsPrec 7 x . (" * " ++) . showsPrec 7 y
     x :^: y -> showParen (p >= 8) $ showsPrec 8 x . (" ^ " ++) . showsPrec 8 y
@@ -30,7 +32,13 @@ instance Show CantorOrdinal where
 decrease :: CantorOrdinal -> Maybe (Either [CantorOrdinal] CantorOrdinal)
 decrease (Nat 0) = Nothing
 decrease (Nat n) = Just $ Right (Nat $ n - 1)
-decrease Omega = Just $ Left (fmap Nat [0..])
+decrease Omega = Just $ Left $ fmap Nat [0..]
+decrease (Epsilon ordinal) =
+  let powerTower ordinal n = iterate (ordinal :^:) (Nat 0) `genericIndex` n
+  in case decrease ordinal of
+    Nothing -> Just $ Left $ fmap (powerTower Omega) [0..]
+    Just (Right prev) -> Just $ Left $ fmap (powerTower (Epsilon prev)) [0..]
+    Just (Left seq) -> Just $ Left $ fmap Epsilon seq
 decrease (x :+: y) =  case decrease y of
   -- (3 + (7 * 0)) => predecessor of 3
   Nothing -> decrease x
@@ -58,6 +66,10 @@ decrease (x :^: y) = case decrease y of
   Just (Right yPred) -> decrease ((x :^: yPred) :*: x)
   -- (ω + 1)^ω => [(ω + 1)^0, (ω + 1)^1, (ω + 1)^2, ...]
   Just (Left ySeq) -> Just $ Left [x :^: yVal | yVal <- ySeq]
+
+-- If you want an immediate predecessor of an ordinal, these are your choices.
+descendants :: CantorOrdinal -> [CantorOrdinal]
+descendants = maybe [] (either id pure) . decrease
 
 -- Given a counter, descends down the whole chain for an ordinal, incrementing
 -- the counter each step. Whenever we need to descend a limit ordinal, we use
