@@ -93,7 +93,7 @@ data OrdinalExpr
 -- Level 3: Beyond PA
   | Epsilon OrdinalExpr
 -- Level 4: The fixpoint insight
-  | Fixpoint OrdinalExpr (OrdinalExpr -> OrdinalExpr) (Maybe String)
+  | Fixpoint OrdinalExpr (OrdinalExpr -> OrdinalExpr) String
   | BinPhi OrdinalExpr OrdinalExpr
 -- Level 5: To the Veblen ordinals!
   | FinPhi [OrdinalExpr]
@@ -156,20 +156,19 @@ instance OrdinalRepr OrdinalExpr where
       (\indices -> Limit [Fixpoint index' fn name | index' <- indices])
 
     expand (BinPhi strength index) = transfiniteInduction strength
-      (standardForm $ Fixpoint index (Omega :^:)
-        (Just $ "ω^"))
+      (standardForm $ Fixpoint index (Omega :^:) ("ω^"))
       (\strength' -> standardForm $ Fixpoint index (BinPhi strength')
-        (Just $ "φ[" ++ show strength' ++ "]"))
+        ("φ[" ++ show strength' ++ "]"))
       (\strengths -> Limit [BinPhi strength' index | strength' <- strengths])
 
     expand (FinPhi coefficients) = expanded where
       (index, gcfs) = decreaseCoefficients coefficients
       name decrementor' = "φ(" ++ (showGcfs decrementor' gcfs) ++ ")"
       recurse decrementor' = Fixpoint index (\x -> FinPhi (applyGcfs decrementor' x gcfs))
-        (Just $ name decrementor')
+        (name decrementor')
       expanded = transfiniteInduction (gcfsDecrementor gcfs)
         -- We've bottomed out. There are no positive coefficients.
-        (standardForm $ Fixpoint index (Omega :^:) (Just $ "ω^"))
+        (standardForm $ Fixpoint index (Omega :^:) ("ω^"))
         (standardForm . recurse)
         (Limit . map recurse)
 
@@ -177,10 +176,10 @@ instance OrdinalRepr OrdinalExpr where
       (index, genOT) = decreaseOrdinalTable ordinalTable
       recurse newDecrementorValue indexBelowDecrementor =
         Fixpoint index (\x -> Phi (applyGOT newDecrementorValue indexBelowDecrementor x genOT))
-          (Just $ name newDecrementorValue indexBelowDecrementor)
+          (name newDecrementorValue indexBelowDecrementor)
       expanded = transfiniteInduction (indexToVary genOT)
         -- We've bottomed out. The generalized list is just (0 -> index).
-        (standardForm $ Fixpoint index (Omega :^:) (Just $ "ω^"))
+        (standardForm $ Fixpoint index (Omega :^:) ("ω^"))
         (\indexBelowDecrementor -> transfiniteInduction (valueBeingVaried genOT)
           (error $ "malformed list: found a key with zero value" ++ show (indexToVary genOT))
           (\newDecrementorValue -> standardForm $ recurse newDecrementorValue indexBelowDecrementor)
@@ -225,10 +224,10 @@ data GenCoefficients = GenCoefficients
   , gcfsZeroCount :: Integer }
 
 showGcfs :: OrdinalExpr -> GenCoefficients -> String
-showGcfs newDecrementorValue gcfs = zeros ++ arg ++ rest where
-  zeros = showCfs (genericReplicate (gcfsZeroCount gcfs) 0)
-  arg = "_,"
-  rest = showCfs (newDecrementorValue : gcfsHeldFixed gcfs)
+showGcfs newDecrementorValue gcfs = intercalate "," (zeros ++ [arg] ++ rest) where
+  zeros = map show $ (genericReplicate (gcfsZeroCount gcfs) 0)
+  arg = "_"
+  rest = map show $ (newDecrementorValue : gcfsHeldFixed gcfs)
 
 applyGcfs :: OrdinalExpr -> OrdinalExpr -> GenCoefficients -> [OrdinalExpr]
 applyGcfs newDecrementorValue arbitraryOrdinal gcfs = if isZero (gcfsDecrementor gcfs)
@@ -270,10 +269,10 @@ showOT :: OrdinalTable -> String
 showOT = intercalate "," . map (\(k, v) -> show k ++ "↦" ++ show v)
 
 showGOT :: OrdinalExpr -> OrdinalExpr -> GenOrdinalTable -> String
-showGOT newValueAtIndex indexBelowValue got = (intercalate "," [a, b, c]) where
+showGOT newValueAtIndex indexBelowValue got = (intercalate "," $ [a, b] ++ cs) where
   a = show indexBelowValue ++ "↦_"
   b = show (indexToVary got) ++ "↦" ++ show newValueAtIndex
-  c = showOT $ portionHeldFixed got
+  cs = map (\(k, v) -> show k ++ "↦" ++ show v) (portionHeldFixed got)
 
 decreaseOrdinalTable :: OrdinalTable -> (OrdinalExpr, GenOrdinalTable)
 decreaseOrdinalTable table = (fixptIndex, generator) where
@@ -297,7 +296,7 @@ smallVeblenOrdinal :: OrdinalExpr
 smallVeblenOrdinal = Phi [(Omega, 1)]
 
 largeVeblenOrdinal :: OrdinalExpr
-largeVeblenOrdinal = Fixpoint 0 (\o -> Phi [(o, 1)]) (Just "the large Veblen sequence")
+largeVeblenOrdinal = Fixpoint 0 (\o -> Phi [(o, 1)]) ("the large Veblen sequence")
 
 -- -----------------------------------------------------------------------------
 -- The rest is boilerplate.
@@ -345,7 +344,7 @@ data EvalOrdinalExpr a = EvalOrdinalExpr
   , atExp :: a -> a -> a
   , atOmega :: a
   , atEpsilon :: a -> a
-  , atFixpoint :: a -> (OrdinalExpr -> OrdinalExpr) -> (Maybe String) -> a
+  , atFixpoint :: a -> (OrdinalExpr -> OrdinalExpr) -> String -> a
   , atBinPhi :: a -> a -> a
   , atFinPhi :: [a] -> a
   , atPhi :: [(a, a)] -> a }
@@ -408,10 +407,9 @@ instance Show OrdinalExpr where
       Epsilon o -> (string "ε") . bracket (shows o)
       BinPhi index arg -> (string "φ") . bracket (shows index) . args [show arg]
       -- TODO: If we change the function representation, change this display.
-      Fixpoint index _ maybeName -> let
+      Fixpoint index _ name -> let
         start = (string "<fixpoint ") . (shows index) . (string " of ")
         end = (string ">")
-        fname = maybe (string "[fn]") string maybeName
-        in start . fname . end
+        in start . (string name) . end
       FinPhi os -> (string "φ") . args (map show os)
       Phi fn -> string $ "φ(" ++ showOT fn ++ ")"
