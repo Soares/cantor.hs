@@ -3,19 +3,21 @@ import Data.List (genericIndex, genericLength)
 
 -- Here we make a weak representation of ordinals. If you want more juice out
 -- of your ordinals, code up a stronger representation.
-data CantorOrdinal
+data Ordinal
   = Nat Integer
   | Omega
-  | Epsilon CantorOrdinal
-  | CantorOrdinal :+: CantorOrdinal
-  | CantorOrdinal :*: CantorOrdinal
-  | CantorOrdinal :^: CantorOrdinal
+  | Epsilon Ordinal -- Shorthand for Phi (Nat 1)
+  | Phi Ordinal Ordinal
+  | Ordinal :+: Ordinal
+  | Ordinal :*: Ordinal
+  | Ordinal :^: Ordinal
 
-instance Show CantorOrdinal where
+instance Show Ordinal where
   showsPrec p e0 = case e0 of
     Nat n -> shows n
     Omega -> ("ω" ++)
     Epsilon ordinal -> ("ε[" ++) . shows ordinal . ("]" ++)
+    Phi gamma alpha -> ("φ[" ++) . shows gamma . ("](" ++) . shows alpha . (")" ++)
     x :+: y -> showParen (p >= 6) $ showsPrec 6 x . (" + " ++) . showsPrec 6 y
     x :*: y -> showParen (p >= 7) $ showsPrec 7 x . (" * " ++) . showsPrec 7 y
     x :^: y -> showParen (p >= 8) $ showsPrec 8 x . (" ^ " ++) . showsPrec 8 y
@@ -29,7 +31,7 @@ instance Show CantorOrdinal where
 --   ω * 3 expands into [ω * 2 + 0, ω * 2 + 1, ω * 2 + 2, ...]
 -- Descent chains are not unique; equivalent ordinals in different
 -- representations will generate different chains of descent.
-decrease :: CantorOrdinal -> Maybe (Either [CantorOrdinal] CantorOrdinal)
+decrease :: Ordinal -> Maybe (Either [Ordinal] Ordinal)
 decrease (Nat 0) = Nothing
 decrease (Nat n) = Just $ Right (Nat $ n - 1)
 decrease Omega = Just $ Left $ fmap Nat [0..]
@@ -39,6 +41,17 @@ decrease (Epsilon ordinal) =
     Nothing -> Just $ Left $ fmap (powerTower Omega) [0..]
     Just (Right prev) -> Just $ Left $ fmap (powerTower (Epsilon prev)) [0..]
     Just (Left seq) -> Just $ Left $ fmap Epsilon seq
+decrease (Phi gamma alpha) = case decrease gamma of
+  Nothing -> decrease (Omega :^: alpha)
+  Just (Right gamma') -> case decrease alpha of
+    -- φ[γ+1](0) = [φ[γ](0), φ[γ](φ[γ](0)), φ[γ](φ[γ](φ[γ](0))), ...]
+    Nothing -> Just $ Left $ iterate (Phi gamma') (Nat 0)
+    -- φ[γ+1](3) = [φ[γ](φ[γ+1](2)+1), ...]
+    Just (Right alpha') -> Just $ Left $ iterate (Phi gamma') ((Phi gamma alpha') :+: Nat 1)
+    -- φ[γ+1](ω) = [φ[γ+1](0), φ[γ+1](1), ...]
+    Just (Left alphaSeq) -> Just $ Left [Phi gamma alpha' | alpha' <- alphaSeq]
+  -- φ[ω](α) = [φ[0](α), φ[1](α), φ[2](α), ...]
+  Just (Left gammaSeq) -> Just $ Left [Phi gamma' alpha | gamma' <- gammaSeq]
 decrease (x :+: y) =  case decrease y of
   -- (3 + (7 * 0)) => predecessor of 3
   Nothing -> decrease x
@@ -68,13 +81,13 @@ decrease (x :^: y) = case decrease y of
   Just (Left ySeq) -> Just $ Left [x :^: yVal | yVal <- ySeq]
 
 -- If you want an immediate predecessor of an ordinal, these are your choices.
-descendants :: CantorOrdinal -> [CantorOrdinal]
+descendants :: Ordinal -> [Ordinal]
 descendants = maybe [] (either id pure) . decrease
 
 -- Given a counter, descends down the whole chain for an ordinal, incrementing
 -- the counter each step. Whenever we need to descend a limit ordinal, we use
 -- the current counter to decide how deep in the fundamental sequence to go.
-chain :: Integer -> CantorOrdinal -> [(Integer, CantorOrdinal)]
+chain :: Integer -> Ordinal -> [(Integer, Ordinal)]
 chain n ordinal = (n, ordinal) : descent where
   descent = case decrease ordinal of
     Nothing -> []
@@ -82,15 +95,15 @@ chain n ordinal = (n, ordinal) : descent where
     Just (Left seq) -> chain (n + 1) (seq `genericIndex` n)
 
 -- The depth of an ordinal's chain when you start at the given counter.
-value :: Integer -> CantorOrdinal -> Integer
+value :: Integer -> Ordinal -> Integer
 value n = genericLength . chain n
 
 -- The depth of an ordinal's chain when you start at 1.
-encode :: CantorOrdinal -> Integer
+encode :: Ordinal -> Integer
 encode = value 1
 
 -- The fast-growing hierarchy.
-f :: CantorOrdinal -> Integer -> Integer
+f :: Ordinal -> Integer -> Integer
 f alpha n = case decrease alpha of
   Nothing -> n + 1
   Just (Right prev) -> iterate (f prev) n `genericIndex` n
@@ -101,7 +114,7 @@ grahamsNumber :: Integer
 grahamsNumber = f (Omega :+: Nat 1) 64
 
 -- Now let's have the fast-growing hierarchy show its work.
-data Fexpr = F CantorOrdinal Fexpr | Mere Integer
+data Fexpr = F Ordinal Fexpr | Mere Integer
 
 instance Show Fexpr where
   show (Mere n) = show n
@@ -119,7 +132,7 @@ expand :: Fexpr -> [Fexpr]
 expand (Mere n) = [Mere n]
 expand expr = expr : expand (step expr)
 
-verboseF :: CantorOrdinal -> Integer -> [Fexpr]
+verboseF :: Ordinal -> Integer -> [Fexpr]
 verboseF alpha n = expand (F alpha $ Mere n)
 
 main :: IO ()
