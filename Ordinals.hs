@@ -190,7 +190,6 @@ instance OrdinalRepr OrdinalExpr where
           -- We have something like (ω -> ω). Arbitrarily, the fundamental
           -- sequence we chose will be [(1 -> ξ) (ω -> 1)], [(2 -> ξ) (ω -> 2)], etc.
           (\newDecrementorValues -> Limit [recurse x y | (x, y) <- zip newDecrementorValues indicesBelowDecrementor]))
-      -- It should be understood that the γ and ξ will fill some zeros, as before.
       name newDV iBel = "φ(" ++ showGOT newDV iBel genOT ++ ")"
 
 -- =============================================================================
