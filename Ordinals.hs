@@ -205,8 +205,8 @@ instance OrdinalRepr OrdinalExpr where
 
 -- -----------------------------------------------------------------------------
 -- To the small Veblen ordinal!
--- Used to define the finite Veblen ordial. The basic idea is that we have
--- a list of coefficients, and we "decrement" it as follows:
+-- Used to define the finite-coefficient Veblen function. The basic idea is that
+-- we have a list of coefficients, and we "decrement" it as follows:
 -- (1) Chop off the final value, interpret it as telling us which fixpt to use.
 -- (2) Go leftward until you find something positive. Decrement it.
 -- (3) Now you can insert any ordinal before the zeros you passed over.
