@@ -212,9 +212,9 @@ instance OrdinalRepr OrdinalExpr where
 -- (2) Go leftward until you find something positive. Decrement it.
 -- (3) Now you can insert any ordinal before the zeros you passed over.
 -- Clearly, this is well-founded.
--- Examples: γ00δ0β00α → (γ, δ' → 00_δ'0β00α)
---           γα → (γ, α' → _α')
---           γ → (γ, _)
+-- Examples: γ00δ0β00α → (γ, \δ' x → 00xδ'0β00α)
+--           γα → (γ, \α' x → xα')
+--           γ → (γ, \_ x → x)
 showCfs :: [OrdinalExpr] -> String
 showCfs = intercalate "," . map show
 
@@ -250,7 +250,8 @@ decreaseCoefficients coefficients = (index, gen) where
 -- To the large Veblen ordinal!
 -- We do basically the same thing as the small Veblen ordinal, except things
 -- can ordinally-deep in the coefficient list. Every ordinal not mentioned in
--- the table is assumed to have value 0.
+-- the table is assumed to have value 0. The table must be finite. The table
+-- should have at most one isZero key.
 type OrdinalTable = [(OrdinalExpr, OrdinalExpr)]
 
 data GenOrdinalTable = GenOrdinalTable
@@ -406,7 +407,6 @@ instance Show OrdinalExpr where
       Omega -> (string "ω")
       Epsilon o -> (string "ε") . bracket (shows o)
       BinPhi index arg -> (string "φ") . bracket (shows index) . args [show arg]
-      -- TODO: If we change the function representation, change this display.
       Fixpoint index _ name -> let
         start = (string "<fixpoint ") . (shows index) . (string " of ")
         end = (string ">")
