@@ -385,7 +385,7 @@ simplify = evalOrdinalExpr simplifier where
                           _ -> x :^: y
     , atOmega = Omega
     , atEpsilon = \i -> Epsilon i
-    , atFixpoint = \o fn mname -> Fixpoint o fn mname
+    , atFixpoint = \o fn name -> Fixpoint o fn name
     , atBinPhi = \a b -> BinPhi a b
     , atFinPhi = \as -> FinPhi as
     , atPhi = \fn -> Phi fn }
