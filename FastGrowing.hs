@@ -11,7 +11,7 @@ f alpha n = transfiniteInduction alpha
 
 -- I'm glad Haskell has arbitrary precision Integers. Let's put them to the test.
 grahamsNumber :: Integer
-grahamsNumber = f (Omega :+: Nat 1) 64
+grahamsNumber = f (Omega + 1) 64
 
 -- Now let's have the fast-growing hierarchy show its work.
 data Fexpr o = F o (Fexpr o) | Mere Integer
@@ -35,7 +35,6 @@ expand expr = expr : expand (step expr)
 verboseF :: OrdinalRepr o => o -> Integer -> [Fexpr o]
 verboseF alpha n = expand (F alpha $ Mere n)
 
--- The first 10 expansions of Graham's number via f.
--- (Much more than that and the expressions themselves get too large to print.)
+-- The first 10 steps of evaluating Graham's number via f.
 main :: IO ()
-main = mapM_ print $ take 10 $ verboseF (Omega :+: Nat 1) 64
+main = mapM_ print $ take 10 $ verboseF (Omega + 1) 64
